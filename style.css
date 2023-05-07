@@ -1,7 +1,7 @@
 body {
     text-align: center;
     background-color:rgb(0, 140, 255);
-    font-size: large;
+    font-size: x-large;
 }
 
 h1 {
@@ -9,6 +9,5 @@ h1 {
     font-size: xx-large;
 }
 p{
-    color: rgb(75, 17, 129);
-
+    color: rgb(87, 15, 221);
 }
