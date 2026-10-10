@@ -1,5 +1,5 @@
 // ==========================================
-// STATE MANAGEMENT & PUMP.FUN AMM ENGINE
+// STATE MANAGEMENT & PERSISTENCE (localStorage)
 // ==========================================
 let currentUser = {
     username: "BuilderCharlie",
@@ -8,6 +8,7 @@ let currentUser = {
 };
 
 let coins = {}; // Dynamic store for user-launched coins
+
 let currentTicker = null;
 let currentTradeMode = 'buy';
 let currentFilter = 'all';
@@ -19,9 +20,29 @@ const CURVE_SUPPLY = 800000000;
 const GRADUATION_TARGET_RESERVE = 50000.00; // 50,000 Robux pooled target
 
 window.onload = function() {
+    loadState(); // Load saved data from browser storage on start
     updateBalanceDisplay();
     renderCoinExplorer();
 };
+
+// Save state helper
+function saveState() {
+    localStorage.setItem('blox_fun_user', JSON.stringify(currentUser));
+    localStorage.setItem('blox_fun_coins', JSON.stringify(coins));
+}
+
+// Load state helper
+function loadState() {
+    const savedUser = localStorage.getItem('blox_fun_user');
+    const savedCoins = localStorage.getItem('blox_fun_coins');
+    
+    if (savedUser) {
+        currentUser = JSON.parse(savedUser);
+    }
+    if (savedCoins) {
+        coins = JSON.parse(savedCoins);
+    }
+}
 
 // ==========================================
 // VIEW ROUTING
@@ -141,6 +162,7 @@ function loadTerminal(ticker) {
 
     updateGraduationMetrics(coin);
     renderLiveTradesFeed(coin);
+    renderChatBox(coin);
     renderAxiomChart(coin);
     updateTradePreview();
 }
@@ -298,6 +320,7 @@ function executeAxiomTrade() {
         coin.isGraduated = true;
     }
 
+    saveState(); // Persist changes immediately
     updateBalanceDisplay();
     loadTerminal(currentTicker);
 }
@@ -333,6 +356,8 @@ function sendChatMessage() {
     if (!coin.chat) coin.chat = [];
     coin.chat.push({ user: currentUser.username, text: msg });
     input.value = '';
+    
+    saveState(); // Persist chat messages
     renderChatBox(coin);
 }
 
@@ -379,11 +404,9 @@ function submitLaunchCoin(e) {
         return;
     }
 
-    // Base Bonding Curve parameters
     let robuxReserve = 3000.00;
     let tokenReserve = 1073000000;
     let tokensAvailable = 800000000;
-    let devTokensReceived = 0;
     let k = robuxReserve * tokenReserve;
 
     const newCoin = {
@@ -405,7 +428,6 @@ function submitLaunchCoin(e) {
 
     coins[ticker] = newCoin;
 
-    // Handle optional Dev Pre-Launch Buy
     if (devBuyRobux > 0) {
         currentUser.robuxBalance -= devBuyRobux;
         const newRobuxRes = newCoin.robuxReserve + devBuyRobux;
@@ -433,6 +455,7 @@ function submitLaunchCoin(e) {
 
     closeLaunchModal();
     document.getElementById('launch-form').reset();
+    saveState(); // Persist newly launched coin
     updateBalanceDisplay();
     switchView('trade', ticker);
 }
@@ -451,6 +474,7 @@ function closeDepositModal() { document.getElementById('deposit-modal').style.di
 
 function topUpRobux(amount) {
     currentUser.robuxBalance += amount;
+    saveState(); // Persist new balance
     updateBalanceDisplay();
     closeDepositModal();
 }
