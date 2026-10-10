@@ -1,5 +1,5 @@
 // ==========================================
-// STATE MANAGEMENT & MOCK DATA
+// STATE MANAGEMENT & MOCK DATA (Zero Fake Coins)
 // ==========================================
 let currentUser = {
     username: "BuilderCharlie",
@@ -7,40 +7,7 @@ let currentUser = {
     holdings: {} // ticker -> token amount
 };
 
-let coins = {
-    "NOOB": {
-        name: "Noob Coin",
-        ticker: "NOOB",
-        description: "The classic starting meme coin of Roblox.",
-        imageUrl: "https://images.unsplash.com/photo-1614680376593-902f749f7ffc?w=150",
-        creator: "Builderman",
-        robuxReserve: 5500.00,
-        tokenReserve: 1050000000,
-        tokensAvailable: 750000000,
-        k: 5500.00 * 1050000000,
-        isGraduated: false,
-        priceHistory: [0.000005, 0.0000052, 0.0000055],
-        trades: [
-            { type: 'BUY', amountR: 500, amountT: 95000000, time: '10:42 AM' }
-        ]
-    },
-    "ROBUX": {
-        name: "Infinite Robux",
-        ticker: "ROBUX",
-        description: "Definitely totally legitimate free robux generator coin.",
-        imageUrl: "https://images.unsplash.com/photo-1622979135225-d2ba269bc1df?w=150",
-        creator: "RobloxCorp",
-        robuxReserve: 12000.00,
-        tokenReserve: 950000000,
-        tokensAvailable: 650000000,
-        k: 12000.00 * 950000000,
-        isGraduated: false,
-        priceHistory: [0.000012, 0.000013, 0.0000126],
-        trades: [
-            { type: 'BUY', amountR: 1200, amountT: 80000000, time: '10:30 AM' }
-        ]
-    }
-};
+let coins = {}; // Starts completely empty like pump.fun
 
 let currentTicker = null;
 let currentTradeMode = 'buy';
@@ -91,7 +58,11 @@ function renderCoinGrid() {
     }
 
     if (coinList.length === 0) {
-        grid.innerHTML = `<p style="color:var(--text-muted)">No coins found.</p>`;
+        grid.innerHTML = `
+            <div style="grid-column: 1 / -1; text-align: center; padding: 3rem; color: var(--text-muted);">
+                <h3>No coins launched yet!</h3>
+                <p style="margin-top: 0.5rem;">Be the first to launch a meme coin using the button above.</p>
+            </div>`;
         return;
     }
 
