@@ -3,11 +3,13 @@
 // ==========================================
 let currentUser = {
     username: "BuilderCharlie",
+    avatarUrl: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=50",
     robuxBalance: 25000.00,
     holdings: {} // ticker -> token amount
 };
 
 let coins = {}; // Dynamic store for user-launched coins
+let globalChatMessages = []; // Global chat messages store
 
 let currentTicker = null;
 let currentTradeMode = 'buy';
@@ -21,31 +23,31 @@ const GRADUATION_TARGET_RESERVE = 50000.00; // 50,000 Robux pooled target
 
 window.onload = function() {
     loadState(); // Load saved data from browser storage on start
-    updateBalanceDisplay();
+    updateUserNavDisplay();
     renderCoinExplorer();
+    renderGlobalChat();
 };
 
 // Save state helper
 function saveState() {
     localStorage.setItem('blox_fun_user', JSON.stringify(currentUser));
     localStorage.setItem('blox_fun_coins', JSON.stringify(coins));
+    localStorage.setItem('blox_fun_global_chat', JSON.stringify(globalChatMessages));
 }
 
 // Load state helper
 function loadState() {
     const savedUser = localStorage.getItem('blox_fun_user');
     const savedCoins = localStorage.getItem('blox_fun_coins');
+    const savedChat = localStorage.getItem('blox_fun_global_chat');
     
-    if (savedUser) {
-        currentUser = JSON.parse(savedUser);
-    }
-    if (savedCoins) {
-        coins = JSON.parse(savedCoins);
-    }
+    if (savedUser) currentUser = JSON.parse(savedUser);
+    if (savedCoins) coins = JSON.parse(savedCoins);
+    if (savedChat) globalChatMessages = JSON.parse(savedChat);
 }
 
 // ==========================================
-// VIEW ROUTING
+// VIEW & TAB ROUTING
 // ==========================================
 function switchView(viewName, ticker = null) {
     document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
@@ -59,6 +61,59 @@ function switchView(viewName, ticker = null) {
     }
 }
 
+function switchMainTab(tabName) {
+    document.querySelectorAll('.main-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.subview').forEach(s => s.classList.remove('active'));
+
+    if (tabName === 'explore') {
+        event.target.classList.add('active');
+        document.getElementById('subview-explore').classList.add('active');
+        renderCoinExplorer();
+    } else if (tabName === 'portfolio') {
+        event.target.classList.add('active');
+        document.getElementById('subview-portfolio').classList.add('active');
+        renderPortfolio();
+    } else if (tabName === 'global-chat') {
+        event.target.classList.add('active');
+        document.getElementById('subview-global-chat').classList.add('active');
+        renderGlobalChat();
+    }
+}
+
+// ==========================================
+// PROFILE CHANGER
+// ==========================================
+function openProfileModal() {
+    document.getElementById('profile-username-input').value = currentUser.username;
+    document.getElementById('profile-avatar-input').value = currentUser.avatarUrl;
+    document.getElementById('profile-modal').style.display = 'flex';
+}
+
+function closeProfileModal() {
+    document.getElementById('profile-modal').style.display = 'none';
+}
+
+function saveProfile(e) {
+    e.preventDefault();
+    const newName = document.getElementById('profile-username-input').value.trim();
+    const newAvatar = document.getElementById('profile-avatar-input').value.trim();
+
+    if (!newName || !newAvatar) return alert("Please fill in both fields.");
+
+    currentUser.username = newName;
+    currentUser.avatarUrl = newAvatar;
+
+    saveState();
+    updateUserNavDisplay();
+    closeProfileModal();
+}
+
+function updateUserNavDisplay() {
+    document.getElementById('nav-username').innerText = currentUser.username;
+    document.getElementById('nav-avatar-img').src = currentUser.avatarUrl;
+    updateBalanceDisplay();
+}
+
 // ==========================================
 // EXPLORER / HOME GRID
 // ==========================================
@@ -69,17 +124,14 @@ function renderCoinExplorer() {
 
     let list = Object.values(coins);
 
-    // Filter
     if (currentFilter === 'graduated') {
         list = list.filter(c => c.isGraduated);
     } else if (currentFilter === 'mine') {
         list = list.filter(c => c.creator === currentUser.username);
     }
 
-    // Search query
     list = list.filter(c => c.name.toLowerCase().includes(search) || c.ticker.toLowerCase().includes(search));
 
-    // Sort
     if (currentSort === 'marketCap') {
         list.sort((a, b) => (b.robuxReserve / b.tokenReserve) - (a.robuxReserve / a.tokenReserve));
     } else if (currentSort === 'newest') {
@@ -92,7 +144,7 @@ function renderCoinExplorer() {
         grid.innerHTML = `
             <div style="grid-column: 1 / -1; text-align: center; padding: 4rem; color: var(--text-muted);">
                 <h3>No tokens found on the bonding curve.</h3>
-                <p style="margin-top: 0.5rem;">Click "Start a New Coin" to deploy the first one!</p>
+                <p style="margin-top: 0.5rem;">Click "Start Coin" to deploy the first one!</p>
             </div>`;
         return;
     }
@@ -143,7 +195,125 @@ function filterCoins() {
 }
 
 // ==========================================
-// AXIOM / PUMP.FUN TERMINAL VIEW
+// PORTFOLIO TAB LOGIC
+// ==========================================
+function renderPortfolio() {
+    document.getElementById('port-robux').innerText = `R$ ${currentUser.robuxBalance.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+
+    const holdingsGrid = document.getElementById('portfolio-holdings-list');
+    holdingsGrid.innerHTML = '';
+
+    let totalTokensValue = 0;
+
+    const tickers = Object.keys(currentUser.holdings || {});
+    if (tickers.length === 0 || tickers.every(t => currentUser.holdings[t] <= 0)) {
+        holdingsGrid.innerHTML = `<p style="color:var(--text-muted)">You don't own any token bags yet. Start trading in the explorer!</p>`;
+    } else {
+        tickers.forEach(ticker => {
+            const amount = currentUser.holdings[ticker];
+            if (amount <= 0) return;
+            const coin = coins[ticker];
+            if (!coin) return;
+
+            const price = coin.robuxReserve / coin.tokenReserve;
+            const fiatVal = amount * price;
+            totalTokensValue += fiatVal;
+
+            const card = document.createElement('div');
+            card.className = 'holding-card';
+            card.innerHTML = `
+                <div style="display:flex; align-items:center; gap:0.75rem;">
+                    <img src="${coin.imageUrl}" style="width:40px; height:40px; border-radius:8px; object-fit:cover;" alt="${ticker}">
+                    <div>
+                        <h4>${coin.name}</h4>
+                        <span style="color:var(--text-muted); font-size:0.8rem;">$${ticker}</span>
+                    </div>
+                </div>
+                <div style="display:flex; justify-content:space-between; font-size:0.85rem; margin-top:0.5rem;">
+                    <span style="color:var(--text-muted);">Balance:</span>
+                    <strong>${amount.toLocaleString(undefined, {maximumFractionDigits:0})} $${ticker}</strong>
+                </div>
+                <div style="display:flex; justify-content:space-between; font-size:0.85rem;">
+                    <span style="color:var(--text-muted);">Est. Value:</span>
+                    <strong style="color:var(--accent-green);">R$ ${fiatVal.toLocaleString(undefined, {maximumFractionDigits:2})}</strong>
+                </div>
+                <button class="btn-primary" style="margin-top:0.5rem; font-size:0.8rem; padding:0.4rem;" onclick="switchView('trade', '${ticker}')">Trade $${ticker}</button>
+            `;
+            holdingsGrid.appendChild(card);
+        });
+    }
+
+    document.getElementById('port-tokens-val').innerText = `R$ ${totalTokensValue.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+    document.getElementById('port-networth').innerText = `R$ ${(currentUser.robuxBalance + totalTokensValue).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+}
+
+// ==========================================
+// GLOBAL CHAT WITH PARSED TAGS ($TICKER & @USER)
+// ==========================================
+function sendGlobalChatMessage() {
+    const input = document.getElementById('global-chat-input');
+    const rawText = input.value.trim();
+    if (!rawText) return;
+
+    const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+    globalChatMessages.push({
+        username: currentUser.username,
+        avatar: currentUser.avatarUrl,
+        text: rawText,
+        time: timeStr
+    });
+
+    input.value = '';
+    saveState();
+    renderGlobalChat();
+}
+
+function handleGlobalChatKey(e) {
+    if (e.key === 'Enter') sendGlobalChatMessage();
+}
+
+function renderGlobalChat() {
+    const box = document.getElementById('global-chat-messages');
+    if (!box) return;
+    box.innerHTML = '';
+
+    if (globalChatMessages.length === 0) {
+        box.innerHTML = `<div style="color:var(--text-muted); text-align:center; padding:2rem;">No global messages yet. Say hello!</div>`;
+        return;
+    }
+
+    globalChatMessages.forEach(msg => {
+        // Parse $TICKER and @username formatting
+        let parsedText = msg.text
+            .replace(/\$([a-zA-Z0-9]+)/g, (match, ticker) => {
+                const upper = ticker.toUpperCase();
+                if (coins[upper]) {
+                    return `<a class="chat-ticker-tag" onclick="switchView('trade', '${upper}')">$${upper}</a>`;
+                }
+                return match;
+            })
+            .replace(/@([a-zA-Z0-9_]+)/g, '<span class="chat-user-tag">@$1</span>');
+
+        const div = document.createElement('div');
+        div.className = 'g-msg';
+        div.innerHTML = `
+            <img src="${msg.avatar}" alt="Avatar">
+            <div class="g-msg-content">
+                <div class="g-msg-header">
+                    <span class="g-username">${msg.username}</span>
+                    <span class="g-time">${msg.time}</span>
+                </div>
+                <div class="g-text">${parsedText}</div>
+            </div>
+        `;
+        box.appendChild(div);
+    });
+    box.scrollTop = box.scrollHeight;
+}
+
+// ==========================================
+// AXIOM TERMINAL & TRADING VIEW
 // ==========================================
 function loadTerminal(ticker) {
     const coin = coins[ticker];
@@ -164,7 +334,6 @@ function loadTerminal(ticker) {
     renderLiveTradesFeed(coin);
     renderChatBox(coin);
     renderAxiomChart(coin);
-    updatePresetLabels(); // Update preset buttons based on Buy/Sell mode
     updateTradePreview();
 }
 
@@ -208,9 +377,6 @@ function renderAxiomChart(coin) {
     });
 }
 
-// ==========================================
-// TRADING OPTIONS & PERCENTAGE BUTTONS
-// ==========================================
 function setTradeMode(mode) {
     currentTradeMode = mode;
     document.getElementById('mode-buy-btn').classList.toggle('active', mode === 'buy');
@@ -234,48 +400,19 @@ function setTradeMode(mode) {
         const userBag = currentUser.holdings[currentTicker] || 0;
         document.getElementById('trade-input-val').value = userBag > 0 ? userBag : 0;
     }
-    
-    updatePresetLabels();
     updateTradePreview();
-}
-
-// Dynamically change preset buttons to percentages (25%, 50%, 75%, 100%)
-function updatePresetLabels() {
-    const container = document.getElementById('quick-presets-container');
-    if (!container) return;
-
-    if (currentTradeMode === 'buy') {
-        container.innerHTML = `
-            <button onclick="setPercentageAmount(0.25)">25%</button>
-            <button onclick="setPercentageAmount(0.50)">50%</button>
-            <button onclick="setPercentageAmount(0.75)">75%</button>
-            <button onclick="setPercentageAmount(1.00)">100%</button>
-        `;
-    } else {
-        container.innerHTML = `
-            <button onclick="setPercentageAmount(0.25)">25%</button>
-            <button onclick="setPercentageAmount(0.50)">50%</button>
-            <button onclick="setPercentageAmount(0.75)">75%</button>
-            <button onclick="setPercentageAmount(1.00)">100%</button>
-        `;
-    }
 }
 
 function setPercentageAmount(fraction) {
     const inputField = document.getElementById('trade-input-val');
-    
     if (currentTradeMode === 'buy') {
-        // Calculate percentage of available Robux balance
-        const maxRobux = currentUser.robuxBalance;
-        const amount = maxRobux * fraction;
+        const amount = currentUser.robuxBalance * fraction;
         inputField.value = amount > 0 ? amount.toFixed(2) : 0;
     } else {
-        // Calculate percentage of current coin holdings
         const userBag = currentUser.holdings[currentTicker] || 0;
         const amount = userBag * fraction;
         inputField.value = amount > 0 ? amount.toFixed(2) : 0;
     }
-    
     updateTradePreview();
 }
 
@@ -359,7 +496,7 @@ function executeAxiomTrade() {
         coin.isGraduated = true;
     }
 
-    saveState(); // Persist changes immediately
+    saveState();
     updateBalanceDisplay();
     loadTerminal(currentTicker);
 }
@@ -382,7 +519,7 @@ function renderLiveTradesFeed(coin) {
 }
 
 // ==========================================
-// CHAT & COMMUNITY
+// COIN TERMINAL CHAT BOARD
 // ==========================================
 function sendChatMessage() {
     const input = document.getElementById('chat-input');
@@ -396,7 +533,7 @@ function sendChatMessage() {
     coin.chat.push({ user: currentUser.username, text: msg });
     input.value = '';
     
-    saveState(); // Persist chat messages
+    saveState();
     renderChatBox(coin);
 }
 
@@ -494,7 +631,7 @@ function submitLaunchCoin(e) {
 
     closeLaunchModal();
     document.getElementById('launch-form').reset();
-    saveState(); // Persist newly launched coin
+    saveState();
     updateBalanceDisplay();
     switchView('trade', ticker);
 }
@@ -513,7 +650,7 @@ function closeDepositModal() { document.getElementById('deposit-modal').style.di
 
 function topUpRobux(amount) {
     currentUser.robuxBalance += amount;
-    saveState(); // Persist new balance
+    saveState();
     updateBalanceDisplay();
     closeDepositModal();
 }
