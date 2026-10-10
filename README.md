@@ -2,7 +2,7 @@
 
 A Pump.fun / Axiom-style meme coin launchpad **sandbox** for Roblox communities. Fake Robux only, no real money or crypto.
 
-Features: sign up / log in, create coins on a bonding curve, TradingView-style candlestick charts (Lightweight Charts), buy/sell with slippage, portfolio with PnL, tweet-style feed with `@user` and `$TICKER` tags, profiles and follows, settings.
+Features: sign up / log in, create coins on a bonding curve, TradingView-style candlestick charts (Lightweight Charts), buy/sell with slippage, portfolio with PnL, tweet-style feed with `@user` and `$TICKER` tags, profiles and follows, settings, and an opt-in Mayhem Mode for new coins (a simulated agent trades the coin for 24h, then burns its unsold tokens).
 
 ## Deploy on GitHub Pages
 1. Create a new repository and upload `index.html`, `style.css`, `script.js` and `.nojekyll`.

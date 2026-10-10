@@ -17,7 +17,7 @@ let Q='',TF=15,TM='buy',CT='trades',OR=null,DR='',FF='all',VM='pulse',PT='posts'
 function mk(n,tk,d,cr,img){const now=Date.now(),c={name:n,tk,desc:d,img:img||'',creator:cr,R:3000,T:1073e6,avail:8e8,k:3000*1073e6,vol:0,created:now,holders:{},trades:[],ticks:[[now,3000/1073e6]]};DB.coins[tk]=c;return c}
 function doTrade(c,s,a,u,ts=Date.now()){let r,t;
  if(s=='buy'){t=Math.min(c.T-c.k/(c.R+a),c.avail);r=c.k/(c.T-t)-c.R;c.R+=r;c.T-=t;c.avail-=t;c.holders[u]=(c.holders[u]||0)+t}
- else{t=a;const nT=c.T+t;r=c.R-c.k/nT;c.R-=r;c.T=nT;c.avail+=t;c.holders[u]-=t}
+ else{t=a;const nT=c.T+t;r=c.R-c.k/nT;c.R-=r;c.T=nT;c.avail=Math.min(8e8,c.avail+t);c.holders[u]-=t}
  c.vol+=r;c.trades.unshift({s,u,r,t,ts});if(c.trades.length>60)c.trades.length=60;c.ticks.push([ts,px(c),r]);if(c.ticks.length>1500)c.ticks.shift();
  if(c.avail<1){c.avail=0;c.grad=c.grad||ts}return{r,t}}
 function userTrade(c,s,a,ns){const u=ME();a=+a;if(!(a>0))return toast('Enter an amount','err');
@@ -48,7 +48,7 @@ function vw(){const p=cur(),v=$('#view');({'':vDisc,coin:()=>vCoin(p[1]),feed:vF
 function boot(){if(!ME()){authUI();return}$('#auth').style.display='none';TF=ME().set.tf;setAcc();topbar();route()}
 const sn=(base,it,c)=>`<div>${it.map(([k,l])=>`<a class="nv ${c==k?'on':''}" onclick="go('${base}/${k}')">${l}</a>`).join('')}</div>`;
 /* DISCOVER */
-const card=c=>`<div class="cc" onclick="go('coin/${c.tk}')">${CI(c,56)}<div class="ci"><div><b>${esc(c.name)}</b> <span class="mu">$${c.tk}</span><span class="mu fr">${ago(c.created)}</span></div><div class="mu">by <a onclick="event.stopPropagation();go('u/${c.creator}')">${c.creator}</a> / ${Object.values(c.holders).filter(v=>v>1).length} holders</div><div class="r3"><span>MC <b class="g">R$ ${fc(mc(c))}</b></span><span>Vol <b>${fc(c.vol)}</b></span></div><div class="bar"><i style="width:${pct(c)}%"></i></div></div></div>`;
+const card=c=>`<div class="cc" onclick="go('coin/${c.tk}')">${CI(c,56)}<div class="ci"><div><b>${esc(c.name)}</b> <span class="mu">$${c.tk}</span>${c.mayhem?' <span class="mb2">MAYHEM</span>':''}<span class="mu fr">${ago(c.created)}</span></div><div class="mu">by <a onclick="event.stopPropagation();go('u/${c.creator}')">${c.creator}</a> / ${Object.values(c.holders).filter(v=>v>1).length} holders</div><div class="r3"><span>MC <b class="g">R$ ${fc(mc(c))}</b></span><span>Vol <b>${fc(c.vol)}</b></span></div><div class="bar"><i style="width:${pct(c)}%"></i></div></div></div>`;
 function vDisc(){const q=Q.toLowerCase(),A=Object.values(DB.coins),L=A.filter(c=>!q||(c.name+c.tk+c.creator).toLowerCase().includes(q)),k=A.filter(c=>!c.grad).sort((a,b)=>mc(b)-mc(a))[0];
  const col=(t,l)=>`<div class="col"><div class="cH">${t}<span class="mu">${l.length}</span></div>${l.map(card).join('')||'<div class="em">No coins yet. Create the first one.</div>'}</div>`;
  const tb=`<table class="tbl"><tr><th>Coin<th>Price<th>MCap<th>Vol<th>Holders<th>Curve<th>Age</tr>${L.sort((a,b)=>mc(b)-mc(a)).map(c=>`<tr class="k" onclick="go('coin/${c.tk}')"><td><span style="display:flex;gap:8px;align-items:center">${CI(c,24)}<b>${esc(c.name)}</b> <span class="mu">$${c.tk}</span></span><td>${px(c).toFixed(8)}<td class="g">R$ ${fc(mc(c))}<td>${fc(c.vol)}<td>${Object.values(c.holders).filter(v=>v>1).length}<td>${pct(c).toFixed(0)}%<td class="mu">${ago(c.created)}</tr>`).join('')}</table>`;
@@ -62,7 +62,7 @@ function ctab(c){if(CT=='trades')return`<div class="tr5 h"><span>Type<span></spa
  if(CT=='holders'){const h=Object.entries(c.holders).filter(x=>x[1]>1).sort((a,b)=>b[1]-a[1]).slice(0,20);return h.map(([n,v],i)=>`<div class="tr5" style="grid-template-columns:30px 1fr 1fr 60px"><span class="mu">${i+1}</span><a onclick="go('u/${n}')">${esc(n)}</a><span>${fc(v)}</span><span>${(v/1e7).toFixed(2)}%</span></div>`).join('')||'<div class="em">No holders</div>'}
  return`<div style="padding:12px"><textarea id="tr2" placeholder="Post about $${c.tk}..." maxlength="280"></textarea><div class="row"><span class="mu">Auto-tags $${c.tk}</span><button class="bt pr" onclick="newPost('tr2','${c.tk}')">Post</button></div></div>`+(DB.posts.filter(p=>p.text.toUpperCase().includes('$'+c.tk)).slice(0,40).map(post).join('')||'<div class="em">No posts yet</div>')}
 function vCoin(tk){const c=DB.coins[tk],u=ME();if(!c)return $('#view').innerHTML='<div class="em">Coin not found</div>';const h=u.hold[tk]||0;
- $('#view').innerHTML=`<div class="cp"><div><div class="pn ch">${CI(c,48)}<div><b class="lh">${esc(c.name)}</b> <span class="mu">$${c.tk}</span><div class="mu">by <a onclick="go('u/${c.creator}')">${c.creator}</a> / ${ago(c.created)} ago</div></div><div class="cs" id="cs">${stats(c)}</div></div>
+ $('#view').innerHTML=`<div class="cp"><div><div class="pn ch">${CI(c,48)}<div><b class="lh">${esc(c.name)}</b> <span class="mu">$${c.tk}</span>${c.mayhem?' <span class="mb2">MAYHEM</span>':''}<div class="mu">by <a onclick="go('u/${c.creator}')">${c.creator}</a> / ${ago(c.created)} ago</div></div><div class="cs" id="cs">${stats(c)}</div></div>
  <div class="pn"><div class="tb">${[5,15,60,300].map(t=>`<a class="${TF==t?'on':''}" onclick="TF=${t};vw()">${t<60?t+'s':t/60+'m'}</a>`).join('')}</div><div id="cv"></div></div>
  <div class="pn"><div class="tb">${['trades','holders','thread'].map(t=>`<a class="${CT==t?'on':''}" onclick="CT='${t}';vw()">${t}</a>`).join('')}</div><div id="ctab" style="padding:0!important">${ctab(c)}</div></div></div>
  <div><div class="pn"><div class="sw"><a class="${TM=='buy'?'b':''}" onclick="TM='buy';vw()">BUY</a><a class="${TM=='sell'?'s':''}" onclick="TM='sell';vw()">SELL</a></div><div>
@@ -71,7 +71,7 @@ function vCoin(tk){const c=DB.coins[tk],u=ME();if(!c)return $('#view').innerHTML
  <div class="ps">${TM=='buy'?[100,500,1000,5000].map(n=>`<button class="bt" onclick="setAmt(${n})">${fc(n)}</button>`).join(''):[25,50,75,100].map(n=>`<button class="bt" onclick="setPct(${n})">${n}%</button>`).join('')}</div>
  <div class="kv"><span class="mu">You receive</span><b id="est">0</b></div><div class="kv"><span class="mu">Slippage</span><b>${u.set.slip}% <a onclick="go('settings/trading')">edit</a></b></div>
  <button class="bt ${TM=='buy'?'buy':'sell'}" style="width:100%;margin-top:8px;padding:11px" onclick="ex()">${TM=='buy'?'Buy':'Sell'} $${c.tk}</button></div></div>
- <div class="pn" id="cb">${bond(c)}</div><div class="pn"><div class="cH">About</div><div style="padding:12px">${esc(c.desc)}</div></div></div></div>`;est();draw(c)}
+ <div class="pn" id="cb">${bond(c)}</div><div class="pn"><div class="cH">About</div><div style="padding:12px">${esc(c.desc)}${extra(c)}</div></div></div></div>`;est();draw(c)}
 function setAmt(n){$('#amt').value=n;est()}function setPct(p){const h=ME().hold[cur()[1]]||0;$('#amt').value=Math.floor(h*p)/100;est()}
 function est(){const c=DB.coins[cur()[1]],v=+($('#amt')||{}).value||0,e=$('#est');if(!c||!e)return;e.textContent=TM=='buy'?f(Math.min(c.T-c.k/(c.R+v),c.avail))+' $'+c.tk:'R$ '+f(c.R-c.k/(c.T+v),2)}
 function ex(){const c=DB.coins[cur()[1]],v=$('#amt').value;if(ME().set.conf&&!confirm(`${TM} ${v} on $${c.tk}?`))return;userTrade(c,TM,v)}
@@ -131,13 +131,24 @@ function saveTrade(){const s=ME().set;s.slip=+$('#s1').value;s.buy=+$('#s2').val
 function expo(){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(ME(),null,1)],{type:'application/json'}));a.download='bloxfun-account.json';a.click()}
 /* MODALS */
 function dep(){modal(`<h2>Robux faucet</h2><p class="mu" style="margin-bottom:12px">Sandbox top-up. No real money involved.</p><div class="ps" style="grid-template-columns:1fr 1fr">${[1000,5000,25000,100000].map(n=>`<button class="bt" onclick="ME().bal+=${n};save();updBal();modal()">+R$ ${f(n)}</button>`).join('')}</div>`)}
-function launch(){modal(`<h2>Create coin</h2><input id="ln" placeholder="Name" maxlength="24"><input id="lt" placeholder="Ticker (2-8 letters/numbers)" maxlength="8"><textarea id="ld" placeholder="Description"></textarea><input id="li" placeholder="Image URL (optional)"><label class="mu">Dev buy (R$, optional)</label><input id="lb" type="number" value="0" min="0"><div class="row"><button class="bt" onclick="modal()">Cancel</button><button class="bt pr" onclick="mkCoin()">Launch</button></div>`)}
+function launch(){modal(`<h2>Create coin</h2><input id="ln" placeholder="Name" maxlength="24"><input id="lt" placeholder="Ticker (2-8 letters/numbers)" maxlength="8"><textarea id="ld" placeholder="Description"></textarea><input id="li" placeholder="Image URL (optional)"><input id="lx" placeholder="X / Twitter link (optional)"><input id="ltg" placeholder="Telegram link (optional)"><input id="lw" placeholder="Website (optional)">
+<div class="chk" style="align-items:flex-start;border:1px solid var(--b);padding:10px;margin-bottom:10px"><input id="lm" type="checkbox" style="margin-top:3px"><div><b>Mayhem Mode</b><div class="mu">Mints an extra 1B tokens for an automated agent that randomly buys and sells your coin for its first 24 hours (max 1 trade/sec). Unsold tokens are burned after 24h. Can only be chosen now.</div></div></div>
+<label class="mu">Dev buy (R$, optional)</label><input id="lb" type="number" value="0" min="0"><div class="ps">${[0,500,1000,5000].map(n=>`<button class="bt" onclick="$('#lb').value=${n}">${n?fc(n):'None'}</button>`).join('')}</div><div class="row"><button class="bt" onclick="modal()">Cancel</button><button class="bt pr" onclick="mkCoin()">Launch</button></div>`)}
+const MA='MayhemAgent',su=x=>/^https?:\/\//i.test(x||'')?esc(x):'';
 function mkCoin(){const n=$('#ln').value.trim(),t=$('#lt').value.trim().toUpperCase(),b=+$('#lb').value||0,u=ME();
  if(!n||!/^[A-Z0-9]{2,8}$/.test(t))return toast('Enter a name and a 2-8 char ticker','err');if(DB.coins[t])return toast('Ticker exists','err');if(b>u.bal)return toast('Insufficient balance','err');
- const c=mk(n,t,$('#ld').value.trim()||'No description.',u.name,$('#li').value.trim());modal();if(b>0)userTrade(c,'buy',b,1);save();go('coin/'+t)}
+ const c=mk(n,t,$('#ld').value.trim()||'No description.',u.name,$('#li').value.trim());c.links={x:$('#lx').value.trim(),tg:$('#ltg').value.trim(),web:$('#lw').value.trim()};
+ if($('#lm').checked){c.mayhem=true;c.holders[MA]=1e9}modal();if(b>0)userTrade(c,'buy',b,1);save();go('coin/'+t)}
+function extra(c){let h='';const L=c.links||{},ls=[['X',L.x],['Telegram',L.tg],['Website',L.web]].filter(a=>su(a[1]));
+ if(ls.length)h+='<div style="margin-top:8px">'+ls.map(a=>`<a href="${su(a[1])}" target="_blank" rel="noopener noreferrer">${a[0]}</a>`).join(' / ')+'</div>';
+ if(c.mayhem)h+=`<div class="mini" style="margin:10px 0 0;cursor:default"><span class="mb2">MAYHEM</span><span class="mu">${c.mayEnd?`Agent finished, ${fc(c.burned||0)} tokens burned`:`Agent trades ${Math.max(1,Math.ceil((c.created+864e5-Date.now())/36e5))}h more, then unsold tokens burn`}</span></div>`;return h}
 /* LOOP */
 function live(){const p=cur(),u=ME();if(!u)return;updBal();
  if(p[0]=='coin'){const c=DB.coins[p[1]];if(!c||!$('#cs'))return;$('#cs').innerHTML=stats(c);draw(c);$('#cb').innerHTML=bond(c);if(CT!='thread')$('#ctab').innerHTML=ctab(c);est()}
  else if(!(++tick%3)&&document.activeElement.id!='q'&&(p[0]==''||(p[0]=='portfolio'&&p[1]!='created')))vw()}
-setInterval(()=>{if(ME())live()},3000);
+setInterval(()=>{let ch=0;Object.values(DB.coins).forEach(c=>{if(!c.mayhem||c.mayEnd)return;
+ if(Date.now()-c.created>=864e5){c.burned=c.holders[MA]||0;delete c.holders[MA];c.mayEnd=true;ch=1;return}
+ if(c.grad||Math.random()<.5)return;const bag=c.holders[MA]||0,amt=10+Math.random()*110;
+ if(Math.random()<.5||bag<1)doTrade(c,'buy',amt,MA);else doTrade(c,'sell',Math.min(bag,amt/px(c)*(.8+Math.random()*.5)),MA);ch=1});
+ if(ch)save();if(ME())live()},1000);
 onhashchange=route;boot();
