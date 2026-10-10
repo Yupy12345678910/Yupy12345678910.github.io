@@ -1,5 +1,5 @@
 // ==========================================
-// STATE MANAGEMENT & MOCK DATA (Zero Fake Coins)
+// STATE MANAGEMENT & PUMP.FUN AMM ENGINE
 // ==========================================
 let currentUser = {
     username: "BuilderCharlie",
@@ -7,19 +7,20 @@ let currentUser = {
     holdings: {} // ticker -> token amount
 };
 
-let coins = {}; // Starts completely empty like pump.fun
-
+let coins = {}; // Dynamic store for user-launched coins
 let currentTicker = null;
 let currentTradeMode = 'buy';
+let currentFilter = 'all';
 let currentSort = 'marketCap';
-let priceChartInstance = null;
-const TOTAL_SUPPLY = 1000000000;
-const GRADUATION_TARGET = 50000.00;
+let axiomChartInstance = null;
 
-// Initialize App
+const TOTAL_SUPPLY = 1000000000;
+const CURVE_SUPPLY = 800000000;
+const GRADUATION_TARGET_RESERVE = 50000.00; // 50,000 Robux pooled target
+
 window.onload = function() {
     updateBalanceDisplay();
-    renderCoinGrid();
+    renderCoinExplorer();
 };
 
 // ==========================================
@@ -29,125 +30,147 @@ function switchView(viewName, ticker = null) {
     document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
     if (viewName === 'home') {
         document.getElementById('home-view').classList.add('active');
-        renderCoinGrid();
+        renderCoinExplorer();
     } else if (viewName === 'trade') {
         document.getElementById('trade-view').classList.add('active');
         currentTicker = ticker;
-        loadCoinDetails(ticker);
+        loadTerminal(ticker);
     }
 }
 
 // ==========================================
-// RENDER HOME COIN GRID
+// EXPLORER / HOME GRID
 // ==========================================
-function renderCoinGrid() {
+function renderCoinExplorer() {
     const grid = document.getElementById('coin-grid');
-    const search = document.getElementById('search-input').value.toLowerCase();
+    const search = document.getElementById('global-search').value.toLowerCase();
     grid.innerHTML = '';
 
-    let coinList = Object.values(coins);
+    let list = Object.values(coins);
 
-    // Filter by search
-    coinList = coinList.filter(c => c.name.toLowerCase().includes(search) || c.ticker.toLowerCase().includes(search));
+    // Filter
+    if (currentFilter === 'graduated') {
+        list = list.filter(c => c.isGraduated);
+    } else if (currentFilter === 'mine') {
+        list = list.filter(c => c.creator === currentUser.username);
+    }
+
+    // Search query
+    list = list.filter(c => c.name.toLowerCase().includes(search) || c.ticker.toLowerCase().includes(search));
 
     // Sort
     if (currentSort === 'marketCap') {
-        coinList.sort((a, b) => (b.robuxReserve / b.tokenReserve) - (a.robuxReserve / a.tokenReserve));
-    } else {
-        coinList.reverse();
+        list.sort((a, b) => (b.robuxReserve / b.tokenReserve) - (a.robuxReserve / a.tokenReserve));
+    } else if (currentSort === 'newest') {
+        list.reverse();
     }
 
-    if (coinList.length === 0) {
+    document.getElementById('stat-count').innerText = Object.keys(coins).length;
+
+    if (list.length === 0) {
         grid.innerHTML = `
-            <div style="grid-column: 1 / -1; text-align: center; padding: 3rem; color: var(--text-muted);">
-                <h3>No coins launched yet!</h3>
-                <p style="margin-top: 0.5rem;">Be the first to launch a meme coin using the button above.</p>
+            <div style="grid-column: 1 / -1; text-align: center; padding: 4rem; color: var(--text-muted);">
+                <h3>No tokens found on the bonding curve.</h3>
+                <p style="margin-top: 0.5rem;">Click "Start a New Coin" to deploy the first one!</p>
             </div>`;
         return;
     }
 
-    coinList.forEach(coin => {
+    list.forEach(coin => {
         const price = coin.robuxReserve / coin.tokenReserve;
-        const marketCap = price * TOTAL_SUPPLY;
-        const gradPercent = Math.min(100, ((coin.robuxReserve - 3000) / (GRADUATION_TARGET - 3000)) * 100).toFixed(0);
+        const mcap = price * TOTAL_SUPPLY;
+        const pooled = Math.max(0, coin.robuxReserve - 3000);
+        const gradPct = Math.min(100, (pooled / (GRADUATION_TARGET_RESERVE - 3000)) * 100).toFixed(0);
 
         const card = document.createElement('div');
         card.className = 'coin-card';
         card.onclick = () => switchView('trade', coin.ticker);
         card.innerHTML = `
-            <div class="coin-card-header">
+            <div class="coin-card-top">
                 <img src="${coin.imageUrl}" alt="${coin.ticker}">
                 <div>
                     <h3>${coin.name}</h3>
                     <span>$${coin.ticker}</span>
                 </div>
             </div>
-            <div class="coin-stats">
-                <div>Market Cap<br><strong>R$ ${marketCap.toLocaleString(undefined, {maximumFractionDigits:0})}</strong></div>
-                <div>Graduation<br><strong>${gradPercent}%</strong></div>
+            <div class="coin-card-metrics">
+                <div>Market Cap<br><strong>R$ ${mcap.toLocaleString(undefined, {maximumFractionDigits:0})}</strong></div>
+                <div>Graduation<br><strong>${gradPct}%</strong></div>
             </div>
-            <div class="progress-bar-bg">
-                <div class="progress-bar-fill" style="width: ${gradPercent}%"></div>
+            <div class="progress-track">
+                <div class="progress-fill" style="width: ${gradPct}%"></div>
             </div>
         `;
         grid.appendChild(card);
     });
 }
 
-function setSort(type) {
-    currentSort = type;
-    document.querySelectorAll('.sort-btn').forEach(b => b.classList.remove('active'));
+function setFilter(filter) {
+    currentFilter = filter;
+    document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
     event.target.classList.add('active');
-    renderCoinGrid();
+    renderCoinExplorer();
+}
+
+function changeSort(sortVal) {
+    currentSort = sortVal;
+    renderCoinExplorer();
 }
 
 function filterCoins() {
-    renderCoinGrid();
+    renderCoinExplorer();
 }
 
 // ==========================================
-// LOAD COIN DETAILS & CHART
+// AXIOM / PUMP.FUN TERMINAL VIEW
 // ==========================================
-function loadCoinDetails(ticker) {
+function loadTerminal(ticker) {
     const coin = coins[ticker];
     if (!coin) return;
 
-    document.getElementById('detail-img').src = coin.imageUrl;
-    document.getElementById('detail-title').innerText = `${coin.name} ($${coin.ticker})`;
-    document.getElementById('detail-desc').innerText = coin.description;
-    document.getElementById('detail-creator').innerText = `Created by ${coin.creator}`;
+    const price = coin.robuxReserve / coin.tokenReserve;
+    const mcap = price * TOTAL_SUPPLY;
 
-    updateGraduationUI(coin);
-    renderTradeFeed(coin);
-    calculateOutput();
-    renderChart(coin);
+    document.getElementById('term-title').innerText = `${coin.name} ($${coin.ticker})`;
+    document.getElementById('term-marketcap').innerText = `MCap: R$ ${mcap.toLocaleString(undefined, {maximumFractionDigits:0})}`;
+    document.getElementById('term-liq').innerText = `Liq: R$ ${coin.robuxReserve.toLocaleString(undefined, {maximumFractionDigits:0})}`;
+    document.getElementById('term-creator').innerText = `Created by: ${coin.creator}`;
+
+    document.getElementById('metric-robux-pool').innerText = `R$ ${coin.robuxReserve.toLocaleString(undefined, {maximumFractionDigits:0})}`;
+    document.getElementById('metric-holders').innerText = Object.keys(coin.holders || {}).length || 1;
+
+    updateGraduationMetrics(coin);
+    renderLiveTradesFeed(coin);
+    renderAxiomChart(coin);
+    updateTradePreview();
 }
 
-function updateGraduationUI(coin) {
-    const pooledRobux = Math.max(0, coin.robuxReserve - 3000);
-    const percent = Math.min(100, (pooledRobux / (GRADUATION_TARGET - 3000)) * 100);
-    document.getElementById('grad-percent').innerText = `${percent.toFixed(1)}%`;
-    document.getElementById('grad-bar').style.width = `${percent}%`;
+function updateGraduationMetrics(coin) {
+    const pooled = Math.max(0, coin.robuxReserve - 3000);
+    const pct = Math.min(100, (pooled / (GRADUATION_TARGET_RESERVE - 3000)) * 100);
+    document.getElementById('grad-pct-text').innerText = `${pct.toFixed(1)}%`;
+    document.getElementById('grad-bar-fill').style.width = `${pct}%`;
 }
 
-function renderChart(coin) {
-    const ctx = document.getElementById('priceCanvas').getContext('2d');
-    if (priceChartInstance) {
-        priceChartInstance.destroy();
-    }
+function renderAxiomChart(coin) {
+    const ctx = document.getElementById('axiomChart').getContext('2d');
+    if (axiomChartInstance) axiomChartInstance.destroy();
 
-    priceChartInstance = new Chart(ctx, {
+    const currentPrice = coin.robuxReserve / coin.tokenReserve;
+    document.getElementById('live-price-val').innerText = `R$ ${currentPrice.toFixed(8)}`;
+
+    axiomChartInstance = new Chart(ctx, {
         type: 'line',
         data: {
             labels: coin.priceHistory.map((_, i) => `#${i + 1}`),
             datasets: [{
                 data: coin.priceHistory,
-                borderColor: '#22c55e',
+                borderColor: '#10b981',
                 borderWidth: 2,
                 pointRadius: 0,
-                tension: 0.2,
+                tension: 0.15,
                 fill: true,
-                backgroundColor: 'rgba(34, 197, 94, 0.05)'
+                backgroundColor: 'rgba(16, 185, 129, 0.05)'
             }]
         },
         options: {
@@ -156,44 +179,50 @@ function renderChart(coin) {
             plugins: { legend: { display: false } },
             scales: {
                 x: { display: false },
-                y: { grid: { color: '#1e293b' }, ticks: { color: '#94a3b8' } }
+                y: { grid: { color: '#1e294a' }, ticks: { color: '#94a3b8' } }
             }
         }
     });
 }
 
 // ==========================================
-// BUY / SELL TAB SWITCHING & MATH
+// TRADING OPTIONS & AMM BONDING CURVE MATH
 // ==========================================
-function switchTab(tab) {
-    currentTradeMode = tab;
-    document.getElementById('tab-buy').classList.toggle('active', tab === 'buy');
-    document.getElementById('tab-sell').classList.toggle('active', tab === 'sell');
+function setTradeMode(mode) {
+    currentTradeMode = mode;
+    document.getElementById('mode-buy-btn').classList.toggle('active', mode === 'buy');
+    document.getElementById('mode-sell-btn').classList.toggle('active', mode === 'sell');
 
-    const execBtn = document.getElementById('execute-btn');
-    const label = document.getElementById('input-label');
-    const currency = document.getElementById('input-currency');
+    const execBtn = document.getElementById('axiom-execute-btn');
+    const topLbl = document.getElementById('input-top-label');
+    const tag = document.getElementById('token-symbol-tag');
 
-    if (tab === 'buy') {
-        execBtn.innerText = 'Buy Tokens';
+    if (mode === 'buy') {
+        execBtn.innerText = 'Place Buy Order';
         execBtn.classList.remove('sell-mode');
-        label.innerText = 'Robux to Spend';
-        currency.innerText = 'R$';
-        document.getElementById('trade-amount').value = 500;
+        topLbl.innerText = 'Robux to Pay';
+        tag.innerText = 'R$';
+        document.getElementById('trade-input-val').value = 500;
     } else {
-        execBtn.innerText = 'Sell Tokens';
+        execBtn.innerText = 'Place Sell Order';
         execBtn.classList.add('sell-mode');
-        label.innerText = 'Tokens to Sell';
-        currency.innerText = `$${currentTicker}`;
-        document.getElementById('trade-amount').value = 1000000;
+        topLbl.innerText = 'Tokens to Sell';
+        tag.innerText = `$${currentTicker}`;
+        document.getElementById('trade-input-val').value = 1000000;
     }
-    calculateOutput();
+    updateTradePreview();
 }
 
-function calculateOutput() {
+function setPresetAmount(amount) {
+    document.getElementById('trade-input-val').value = amount;
+    updateTradePreview();
+}
+
+function updateTradePreview() {
     const coin = coins[currentTicker];
-    const val = parseFloat(document.getElementById('trade-amount').value) || 0;
-    const estEl = document.getElementById('est-tokens');
+    if (!coin) return;
+    const val = parseFloat(document.getElementById('trade-input-val').value) || 0;
+    const estEl = document.getElementById('est-output-val');
 
     if (currentTradeMode === 'buy') {
         if (val <= 0) { estEl.innerText = `0 $${currentTicker}`; return; }
@@ -211,16 +240,16 @@ function calculateOutput() {
     }
 }
 
-function executeTrade() {
+function executeAxiomTrade() {
     const coin = coins[currentTicker];
-    const val = parseFloat(document.getElementById('trade-amount').value);
+    const val = parseFloat(document.getElementById('trade-input-val').value);
     if (!val || val <= 0) return alert("Please enter a valid amount.");
 
-    const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 
     if (currentTradeMode === 'buy') {
         if (currentUser.robuxBalance < val) {
-            alert("Insufficient Robux balance! Top up in the top right.");
+            alert("Insufficient Robux balance! Top up in top navigation.");
             return;
         }
 
@@ -234,14 +263,16 @@ function executeTrade() {
         coin.tokenReserve = newTokenReserve;
         coin.tokensAvailable -= tokensOut;
 
-        // User holding update
         if (!currentUser.holdings[currentTicker]) currentUser.holdings[currentTicker] = 0;
         currentUser.holdings[currentTicker] += tokensOut;
 
-        coin.trades.unshift({ type: 'BUY', amountR: val, amountT: tokensOut, time: now });
+        if (!coin.holders) coin.holders = {};
+        coin.holders[currentUser.username] = true;
+
+        coin.trades.unshift({ type: 'BUY', user: currentUser.username, amountR: val, amountT: tokensOut, time: timeStr });
     } else {
-        const userTokens = currentUser.holdings[currentTicker] || 0;
-        if (userTokens < val) {
+        const userBag = currentUser.holdings[currentTicker] || 0;
+        if (userBag < val) {
             alert("You don't own enough tokens to sell!");
             return;
         }
@@ -257,83 +288,169 @@ function executeTrade() {
 
         currentUser.holdings[currentTicker] -= val;
 
-        coin.trades.unshift({ type: 'SELL', amountR: robuxOut, amountT: val, time: now });
+        coin.trades.unshift({ type: 'SELL', user: currentUser.username, amountR: robuxOut, amountT: val, time: timeStr });
     }
 
-    // Update price history & check graduation
-    const currentPrice = coin.robuxReserve / coin.tokenReserve;
-    coin.priceHistory.push(currentPrice);
+    const newPrice = coin.robuxReserve / coin.tokenReserve;
+    coin.priceHistory.push(newPrice);
 
-    if (coin.robuxReserve - 3000 >= GRADUATION_TARGET) {
+    if (coin.robuxReserve - 3000 >= GRADUATION_TARGET_RESERVE) {
         coin.isGraduated = true;
     }
 
     updateBalanceDisplay();
-    loadCoinDetails(currentTicker);
+    loadTerminal(currentTicker);
 }
 
-function renderTradeFeed(coin) {
-    const feed = document.getElementById('trade-feed');
+function renderLiveTradesFeed(coin) {
+    const feed = document.getElementById('live-trades-feed');
     feed.innerHTML = '';
     coin.trades.forEach(t => {
-        const item = document.createElement('div');
-        item.className = 'trade-feed-item';
-        const typeClass = t.type === 'BUY' ? 'trade-buy' : 'trade-sell';
-        item.innerHTML = `
-            <span class="${typeClass}">${t.type} ${t.amountT.toLocaleString(undefined, {maximumFractionDigits:0})} $${coin.ticker}</span>
-            <span>R$ ${t.amountR.toFixed(0)} (${t.time})</span>
+        const row = document.createElement('div');
+        row.className = 'trade-feed-row';
+        const typeCls = t.type === 'BUY' ? 't-buy' : 't-sell';
+        row.innerHTML = `
+            <span style="overflow:hidden; text-overflow:ellipsis;">${t.user}</span>
+            <span>R$ ${t.amountR.toFixed(0)}</span>
+            <span class="${typeCls}">${t.type}</span>
+            <span style="color:var(--text-muted);">${t.time}</span>
         `;
-        feed.appendChild(item);
+        feed.appendChild(row);
     });
 }
 
 // ==========================================
-// MODALS & USER BALANCE
+// CHAT & COMMUNITY
 // ==========================================
-function updateBalanceDisplay() {
-    document.getElementById('nav-balance').innerText = currentUser.robuxBalance.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+function sendChatMessage() {
+    const input = document.getElementById('chat-input');
+    const msg = input.value.trim();
+    if (!msg) return;
+
+    const coin = coins[currentTicker];
+    if (!coin) return;
+
+    if (!coin.chat) coin.chat = [];
+    coin.chat.push({ user: currentUser.username, text: msg });
+    input.value = '';
+    renderChatBox(coin);
 }
 
-function openDepositModal() { document.getElementById('deposit-modal').style.display = 'flex'; }
-function closeDepositModal() { document.getElementById('deposit-modal').style.display = 'none'; }
-
-function addSandboxRobux(amount) {
-    currentUser.robuxBalance += amount;
-    updateBalanceDisplay();
-    closeDepositModal();
+function handleChatKey(e) {
+    if (e.key === 'Enter') sendChatMessage();
 }
 
+function renderChatBox(coin) {
+    const box = document.getElementById('chat-messages');
+    box.innerHTML = '';
+    if (!coin.chat || coin.chat.length === 0) {
+        box.innerHTML = `<div class="chat-msg">No messages yet. Start the conversation!</div>`;
+        return;
+    }
+    coin.chat.forEach(c => {
+        const div = document.createElement('div');
+        div.className = 'chat-msg';
+        div.innerHTML = `<span class="chat-user">${c.user}:</span> ${c.text}`;
+        box.appendChild(div);
+    });
+}
+
+// ==========================================
+// LAUNCH COIN WITH DEV PRE-LAUNCH BUY
+// ==========================================
 function openLaunchModal() { document.getElementById('launch-modal').style.display = 'flex'; }
 function closeLaunchModal() { document.getElementById('launch-modal').style.display = 'none'; }
 
-function handleLaunch(e) {
+function submitLaunchCoin(e) {
     e.preventDefault();
-    const name = document.getElementById('launch-name').value;
-    const ticker = document.getElementById('launch-ticker').value.toUpperCase();
-    const description = document.getElementById('launch-desc').value;
-    const imageUrl = document.getElementById('launch-img').value;
+    const name = document.getElementById('l-name').value;
+    const ticker = document.getElementById('l-ticker').value.toUpperCase();
+    const description = document.getElementById('l-desc').value;
+    const imageUrl = document.getElementById('l-img').value;
+    const devBuyRobux = parseFloat(document.getElementById('l-devbuy').value) || 0;
 
     if (coins[ticker]) {
         alert("Ticker already exists!");
         return;
     }
 
-    coins[ticker] = {
+    if (devBuyRobux > currentUser.robuxBalance) {
+        alert("Insufficient Robux for Dev Pre-Launch Buy!");
+        return;
+    }
+
+    // Base Bonding Curve parameters
+    let robuxReserve = 3000.00;
+    let tokenReserve = 1073000000;
+    let tokensAvailable = 800000000;
+    let devTokensReceived = 0;
+    let k = robuxReserve * tokenReserve;
+
+    const newCoin = {
         name,
         ticker,
         description,
         imageUrl,
         creator: currentUser.username,
-        robuxReserve: 3000.00,
-        tokenReserve: 1073000000,
-        tokensAvailable: 800000000,
-        k: 3000.00 * 1073000000,
+        robuxReserve,
+        tokenReserve,
+        tokensAvailable,
+        k,
         isGraduated: false,
         priceHistory: [0.0000028],
-        trades: []
+        trades: [],
+        holders: {},
+        chat: []
     };
+
+    coins[ticker] = newCoin;
+
+    // Handle optional Dev Pre-Launch Buy
+    if (devBuyRobux > 0) {
+        currentUser.robuxBalance -= devBuyRobux;
+        const newRobuxRes = newCoin.robuxReserve + devBuyRobux;
+        const newTokenRes = newCoin.k / newRobuxRes;
+        let tokensOut = newCoin.tokenReserve - newTokenRes;
+        if (tokensOut > newCoin.tokensAvailable) tokensOut = newCoin.tokensAvailable;
+
+        newCoin.robuxReserve = newRobuxRes;
+        newCoin.tokenReserve = newTokenRes;
+        newCoin.tokensAvailable -= tokensOut;
+
+        if (!currentUser.holdings[ticker]) currentUser.holdings[ticker] = 0;
+        currentUser.holdings[ticker] += tokensOut;
+        newCoin.holders[currentUser.username] = true;
+
+        newCoin.trades.push({
+            type: 'BUY',
+            user: currentUser.username,
+            amountR: devBuyRobux,
+            amountT: tokensOut,
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+        });
+        newCoin.priceHistory.push(newCoin.robuxReserve / newCoin.tokenReserve);
+    }
 
     closeLaunchModal();
     document.getElementById('launch-form').reset();
+    updateBalanceDisplay();
     switchView('trade', ticker);
+}
+
+// ==========================================
+// DEPOSITS & BALANCES
+// ==========================================
+function updateBalanceDisplay() {
+    document.getElementById('nav-balance').innerText = currentUser.robuxBalance.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    const swapBal = document.getElementById('swap-user-bal');
+    if (swapBal) swapBal.innerText = currentUser.robuxBalance.toLocaleString(undefined, {maximumFractionDigits: 0});
+}
+
+function openDepositModal() { document.getElementById('deposit-modal').style.display = 'flex'; }
+function closeDepositModal() { document.getElementById('deposit-modal').style.display = 'none'; }
+
+function topUpRobux(amount) {
+    currentUser.robuxBalance += amount;
+    updateBalanceDisplay();
+    closeDepositModal();
 }
