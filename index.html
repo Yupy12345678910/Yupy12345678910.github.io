@@ -3,108 +3,203 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Blox.fun - Roblox Meme Coin Launchpad</title>
+    <title>Blox.fun - Pro Roblox Meme Coin Terminal</title>
     <link rel="stylesheet" href="style.css">
+    <!-- Chart.js for advanced trading view -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
     <!-- Top Navigation Bar -->
     <header class="navbar">
-        <div class="logo" onclick="switchView('home')">🚀 BLOX.FUN</div>
+        <div class="logo-area" onclick="switchView('home')">
+            <span class="logo-icon">🚀</span>
+            <span class="logo-text">BLOX.FUN <small>PRO</small></span>
+        </div>
+        <div class="nav-center">
+            <div class="search-bar-nav">
+                <span>🔍</span>
+                <input type="text" id="global-search" placeholder="Search tokens by name, ticker, or creator..." oninput="filterCoins()">
+            </div>
+        </div>
         <div class="nav-right">
-            <button class="btn-secondary" onclick="openDepositModal()">
-                R$ <span id="nav-balance">25,000.00</span> ➕
+            <button class="btn-balance" onclick="openDepositModal()">
+                <span>R$</span> <span id="nav-balance">25,000.00</span> 
+                <span class="plus-badge">＋</span>
             </button>
-            <button class="btn-primary" onclick="openLaunchModal()">Launch Coin</button>
+            <button class="btn-primary" onclick="openLaunchModal()">🚀 Start a New Coin</button>
         </div>
     </header>
 
-    <!-- Main Container -->
-    <main class="container">
-        <!-- VIEW 1: HOME / COIN EXPLORER -->
+    <!-- Main Application Container -->
+    <main class="main-container">
+        <!-- ================= VIEW 1: HOME DISCOVER GRID ================= -->
         <div id="home-view" class="view active">
-            <div class="hero-banner">
-                <h1>Trade Roblox Meme Coins instantly.</h1>
-                <p>No pre-sales. Fair bonding curves. Automated graduation to BloxSwap DEX.</p>
+            <div class="hero-section">
+                <div class="hero-content">
+                    <h1>The Ultimate Roblox Meme Coin Launchpad</h1>
+                    <p>Fair launch bonding curves. Zero pre-sales. Automated graduation to BloxSwap DEX.</p>
+                </div>
+                <div class="hero-stats">
+                    <div class="stat-box">
+                        <span>Total Volume Traded</span>
+                        <h3 id="stat-vol">R$ 1,420,500</h3>
+                    </div>
+                    <div class="stat-box">
+                        <span>Active Coins</span>
+                        <h3 id="stat-count">0</h3>
+                    </div>
+                </div>
             </div>
-            
-            <div class="controls-bar">
-                <input type="text" id="search-input" placeholder="Search by name or ticker..." oninput="filterCoins()">
-                <div class="sort-options">
-                    <button class="sort-btn active" onclick="setSort('marketCap')">Market Cap</button>
-                    <button class="sort-btn" onclick="setSort('newest')">Newest</button>
+
+            <div class="filter-sort-bar">
+                <div class="tabs-filter">
+                    <button class="filter-tab active" onclick="setFilter('all')">🔥 Hot & Trending</button>
+                    <button class="filter-tab" onclick="setFilter('graduated')">🏆 Graduated</button>
+                    <button class="filter-tab" onclick="setFilter('mine')">👤 My Coins</button>
+                </div>
+                <div class="sort-dropdown-wrap">
+                    <select id="sort-select" onchange="changeSort(this.value)">
+                        <option value="marketCap">Sort by: Market Cap</option>
+                        <option value="newest">Sort by: Newest</option>
+                        <option value="replies">Sort by: Most Active</option>
+                    </select>
                 </div>
             </div>
 
             <div id="coin-grid" class="coin-grid">
-                <!-- Dynamically populated coin cards -->
+                <!-- Populated dynamically -->
             </div>
         </div>
 
-        <!-- VIEW 2: INDIVIDUAL COIN TRADING VIEW -->
+        <!-- ================= VIEW 2: ADVANCED TERMINAL & TRADE VIEW ================= -->
         <div id="trade-view" class="view">
-            <button class="back-btn" onclick="switchView('home')">← Back to Coins</button>
-            
-            <div class="trade-layout">
-                <!-- Left Column: Chart & Info -->
-                <div class="left-column">
-                    <div class="coin-header-card">
-                        <img id="detail-img" src="" alt="Coin">
-                        <div>
-                            <h2 id="detail-title">Coin Name ($TICKER)</h2>
-                            <p id="detail-desc" class="desc-text">Description goes here...</p>
-                            <span id="detail-creator" class="creator-tag">Created by Builder</span>
+            <div class="terminal-topbar">
+                <button class="btn-back" onclick="switchView('home')">← Back to Explorer</button>
+                <div class="ticker-quick-info">
+                    <h2 id="term-title">Loading...</h2>
+                    <span id="term-marketcap" class="badge-metric">MCap: R$ 0</span>
+                    <span id="term-liq" class="badge-metric">Liq: R$ 3,000</span>
+                    <span id="term-creator" class="badge-creator">Created by: -</span>
+                </div>
+            </div>
+
+            <div class="terminal-grid">
+                <!-- Left Column: Chart & Coin Info -->
+                <div class="terminal-left">
+                    <div class="card chart-card">
+                        <div class="chart-header-row">
+                            <div class="chart-tabs">
+                                <button class="chart-tab active">Bonding Curve Price</button>
+                            </div>
+                            <div class="price-live-display">
+                                <span id="live-price-val">R$ 0.000000</span>
+                            </div>
+                        </div>
+                        <div class="chart-wrapper">
+                            <canvas id="axiomChart"></canvas>
                         </div>
                     </div>
 
-                    <div class="chart-card">
-                        <h3>Live Price Chart (Sandbox AMM)</h3>
-                        <div class="chart-container">
-                            <canvas id="priceCanvas"></canvas>
+                    <div class="card info-metrics-card">
+                        <h3>📊 Bonding Curve & Graduation Progress</h3>
+                        <div class="grad-row-meta">
+                            <span>Progress to BloxSwap DEX Listing</span>
+                            <span id="grad-pct-text">0%</span>
+                        </div>
+                        <div class="progress-track">
+                            <div id="grad-bar-fill" class="progress-fill"></div>
+                        </div>
+                        <p class="metric-note">When market cap reaches ~R$ 69,000 (R$ 50,000 reserve pooled), bonding curve completes and liquidity is permanently locked on BloxSwap.</p>
+                        
+                        <div class="coin-details-grid">
+                            <div class="detail-item">
+                                <span class="d-label">Total Supply</span>
+                                <span class="d-val">1,000,000,000</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="d-label">Curve Supply</span>
+                                <span class="d-val">800,000,000</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="d-label">Virtual Robux Pool</span>
+                                <span id="metric-robux-pool" class="d-val">R$ 3,000</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="d-label">Holders</span>
+                                <span id="metric-holders" class="d-val">1</span>
+                            </div>
                         </div>
                     </div>
 
-                    <div class="graduation-card">
-                        <div class="grad-header">
-                            <span>Graduation Progress to BloxSwap DEX</span>
-                            <span id="grad-percent">0%</span>
+                    <div class="card community-card">
+                        <h3>💬 Live Chat & Community Board</h3>
+                        <div id="chat-messages" class="chat-box">
+                            <div class="chat-msg"><span class="chat-user">System:</span> Coin deployed successfully on bonding curve! 🚀</div>
                         </div>
-                        <div class="progress-bar-bg">
-                            <div id="grad-bar" class="progress-bar-fill"></div>
+                        <div class="chat-input-row">
+                            <input type="text" id="chat-input" placeholder="Say something about this coin..." onkeypress="handleChatKey(event)">
+                            <button onclick="sendChatMessage()">Send</button>
                         </div>
-                        <p class="grad-subtext">Target: R$ 50,000 pooled reserve</p>
                     </div>
                 </div>
 
-                <!-- Right Column: Buy/Sell Panel & Trades -->
-                <div class="right-column">
-                    <div class="swap-card">
-                        <div class="tab-header">
-                            <button id="tab-buy" class="tab-btn active" onclick="switchTab('buy')">Buy</button>
-                            <button id="tab-sell" class="tab-btn" onclick="switchTab('sell')">Sell</button>
+                <!-- Right Column: Axiom Swap Panel & Live Trade Feed -->
+                <div class="terminal-right">
+                    <div class="card swap-axiom-card">
+                        <div class="swap-mode-tabs">
+                            <button id="mode-buy-btn" class="swap-tab active" onclick="setTradeMode('buy')">Buy</button>
+                            <button id="mode-sell-btn" class="swap-tab" onclick="setTradeMode('sell')">Sell</button>
                         </div>
 
-                        <div class="swap-body">
-                            <div class="input-group">
-                                <label id="input-label">Robux to Spend</label>
-                                <div class="input-wrapper">
-                                    <input type="number" id="trade-amount" value="500" oninput="calculateOutput()">
-                                    <span id="input-currency">R$</span>
+                        <div class="swap-form-body">
+                            <div class="slippage-row">
+                                <span>Slippage Tolerance</span>
+                                <select id="slippage-select">
+                                    <option value="1">1%</option>
+                                    <option value="3" selected>3%</option>
+                                    <option value="5">5%</option>
+                                    <option value="10">10%</option>
+                                </select>
+                            </div>
+
+                            <div class="input-field-box">
+                                <div class="field-label-row">
+                                    <span id="input-top-label">Robux to Pay</span>
+                                    <span class="balance-hint">Bal: <span id="swap-user-bal">25,000</span> R$</span>
+                                </div>
+                                <div class="input-inner">
+                                    <input type="number" id="trade-input-val" value="500" oninput="calculateTradePreview()">
+                                    <span id="token-symbol-tag" class="currency-tag">R$</span>
                                 </div>
                             </div>
 
-                            <div class="est-output">
-                                <span>Estimated Output:</span>
-                                <strong id="est-tokens">0.00 $TICKER</strong>
+                            <!-- Quick Preset Buttons -->
+                            <div class="quick-presets" id="quick-presets-container">
+                                <button onclick="setPresetAmount(100)">100 R$</button>
+                                <button onclick="setPresetAmount(500)">500 R$</button>
+                                <button onclick="setPresetAmount(1000)">1,000 R$</button>
+                                <button onclick="setPresetAmount(5000)">5,000 R$</button>
                             </div>
 
-                            <button id="execute-btn" class="btn-execute" onclick="executeTrade()">Buy Tokens</button>
+                            <div class="est-receive-box">
+                                <span>Estimated Output:</span>
+                                <strong id="est-output-val">0.00</strong>
+                            </div>
+
+                            <button id="axiom-execute-btn" class="btn-execute-axiom" onclick="executeAxiomTrade()">Place Buy Order</button>
                         </div>
                     </div>
 
-                    <div class="trades-card">
-                        <h3>Live Trade Feed</h3>
-                        <div id="trade-feed" class="trade-feed-list">
-                            <!-- Live trade items -->
+                    <div class="card live-trades-card">
+                        <h3>⚡ Live Trades</h3>
+                        <div class="trade-table-header">
+                            <span>Account</span>
+                            <span>Robux</span>
+                            <span>Tokens</span>
+                            <span>Time</span>
+                        </div>
+                        <div id="live-trades-feed" class="trades-feed-scroll">
+                            <!-- Populated dynamically -->
                         </div>
                     </div>
                 </div>
@@ -112,51 +207,60 @@
         </div>
     </main>
 
-    <!-- MODAL: SANDBOX DEPOSIT -->
-    <div id="deposit-modal" class="modal">
-        <div class="modal-content">
-            <h2>Sandbox Robux Top-Up</h2>
-            <p>Select test Robux amount to credit your account:</p>
-            <div class="preset-buttons">
-                <button onclick="addSandboxRobux(1000)">+1,000 R$</button>
-                <button onclick="addSandboxRobux(5000)">+5,000 R$</button>
-                <button onclick="addSandboxRobux(25000)">+25,000 R$</button>
-            </div>
-            <button class="btn-close" onclick="closeDepositModal()">Close</button>
-        </div>
-    </div>
-
-    <!-- MODAL: LAUNCH COIN -->
-    <div id="launch-modal" class="modal">
-        <div class="modal-content">
-            <h2>Launch a New Meme Coin</h2>
-            <form id="launch-form" onsubmit="handleLaunch(event)">
+    <!-- ================= MODAL: LAUNCH COIN ================= -->
+    <div id="launch-modal" class="modal-backdrop">
+        <div class="modal-card">
+            <h2>🚀 Launch a New Meme Coin</h2>
+            <p class="modal-sub">Deploy instantly onto the bonding curve with zero upfront liquidity required.</p>
+            
+            <form id="launch-form" onsubmit="submitLaunchCoin(event)">
                 <div class="form-group">
                     <label>Coin Name</label>
-                    <input type="text" id="launch-name" placeholder="e.g. BloxDog" required>
+                    <input type="text" id="l-name" placeholder="e.g. BloxDog" required>
                 </div>
                 <div class="form-group">
                     <label>Ticker Symbol</label>
-                    <input type="text" id="launch-ticker" placeholder="e.g. BDOG" required>
+                    <input type="text" id="l-ticker" placeholder="e.g. BDOG" required maxlength="6">
                 </div>
                 <div class="form-group">
-                    <label>Description</label>
-                    <textarea id="launch-desc" placeholder="What is this coin about?" required></textarea>
+                    <label>Description / Lore</label>
+                    <textarea id="l-desc" placeholder="Tell everyone why this coin will moon..." required></textarea>
                 </div>
                 <div class="form-group">
-                    <label>Image URL</label>
-                    <input type="url" id="launch-img" placeholder="https://..." required>
+                    <label>Image URL (Logo)</label>
+                    <input type="url" id="l-img" placeholder="https://..." required>
                 </div>
+
+                <!-- Dev Pre-launch Buy Option -->
+                <div class="form-group dev-buy-box">
+                    <label>🛠️ Dev Initial Pre-Launch Buy (Optional)</label>
+                    <input type="number" id="l-devbuy" value="1000" min="0" max="25000">
+                    <small>Spend Robux instantly upon creation to secure your initial token bag at block zero.</small>
+                </div>
+
                 <div class="modal-actions">
                     <button type="button" class="btn-secondary" onclick="closeLaunchModal()">Cancel</button>
-                    <button type="submit" class="btn-primary">Create Coin (Free Sandbox)</button>
+                    <button type="submit" class="btn-primary">Launch Token ($BDOG)</button>
                 </div>
             </form>
         </div>
     </div>
 
-    <!-- Include Chart.js library for live graphs -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- ================= MODAL: SANDBOX DEPOSIT ================= -->
+    <div id="deposit-modal" class="modal-backdrop">
+        <div class="modal-card">
+            <h2>💎 Instant Sandbox Robux Top-Up</h2>
+            <p class="modal-sub">Select test Robux amount to credit your account instantly:</p>
+            <div class="deposit-preset-grid">
+                <button onclick="topUpRobux(1000)">+1,000 R$</button>
+                <button onclick="topUpRobux(5000)">+5,000 R$</button>
+                <button onclick="topUpRobux(25000)">+25,000 R$</button>
+                <button onclick="topUpRobux(100000)">+100,000 R$</button>
+            </div>
+            <button class="btn-secondary w-100" onclick="closeDepositModal()" style="margin-top: 1rem;">Done</button>
+        </div>
+    </div>
+
     <script src="script.js"></script>
 </body>
 </html>
