@@ -1,10 +1,162 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <p>Mask</p>
     <meta charset="UTF-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blox.fun - Roblox Meme Coin Launchpad</title>
     <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Top Navigation Bar -->
+    <header class="navbar">
+        <div class="logo" onclick="switchView('home')">🚀 BLOX.FUN</div>
+        <div class="nav-right">
+            <button class="btn-secondary" onclick="openDepositModal()">
+                R$ <span id="nav-balance">25,000.00</span> ➕
+            </button>
+            <button class="btn-primary" onclick="openLaunchModal()">Launch Coin</button>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="container">
+        <!-- VIEW 1: HOME / COIN EXPLORER -->
+        <div id="home-view" class="view active">
+            <div class="hero-banner">
+                <h1>Trade Roblox Meme Coins instantly.</h1>
+                <p>No pre-sales. Fair bonding curves. Automated graduation to BloxSwap DEX.</p>
+            </div>
+            
+            <div class="controls-bar">
+                <input type="text" id="search-input" placeholder="Search by name or ticker..." oninput="filterCoins()">
+                <div class="sort-options">
+                    <button class="sort-btn active" onclick="setSort('marketCap')">Market Cap</button>
+                    <button class="sort-btn" onclick="setSort('newest')">Newest</button>
+                </div>
+            </div>
+
+            <div id="coin-grid" class="coin-grid">
+                <!-- Dynamically populated coin cards -->
+            </div>
+        </div>
+
+        <!-- VIEW 2: INDIVIDUAL COIN TRADING VIEW -->
+        <div id="trade-view" class="view">
+            <button class="back-btn" onclick="switchView('home')">← Back to Coins</button>
+            
+            <div class="trade-layout">
+                <!-- Left Column: Chart & Info -->
+                <div class="left-column">
+                    <div class="coin-header-card">
+                        <img id="detail-img" src="" alt="Coin">
+                        <div>
+                            <h2 id="detail-title">Coin Name ($TICKER)</h2>
+                            <p id="detail-desc" class="desc-text">Description goes here...</p>
+                            <span id="detail-creator" class="creator-tag">Created by Builder</span>
+                        </div>
+                    </div>
+
+                    <div class="chart-card">
+                        <h3>Live Price Chart (Sandbox AMM)</h3>
+                        <div class="chart-container">
+                            <canvas id="priceCanvas"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="graduation-card">
+                        <div class="grad-header">
+                            <span>Graduation Progress to BloxSwap DEX</span>
+                            <span id="grad-percent">0%</span>
+                        </div>
+                        <div class="progress-bar-bg">
+                            <div id="grad-bar" class="progress-bar-fill"></div>
+                        </div>
+                        <p class="grad-subtext">Target: R$ 50,000 pooled reserve</p>
+                    </div>
+                </div>
+
+                <!-- Right Column: Buy/Sell Panel & Trades -->
+                <div class="right-column">
+                    <div class="swap-card">
+                        <div class="tab-header">
+                            <button id="tab-buy" class="tab-btn active" onclick="switchTab('buy')">Buy</button>
+                            <button id="tab-sell" class="tab-btn" onclick="switchTab('sell')">Sell</button>
+                        </div>
+
+                        <div class="swap-body">
+                            <div class="input-group">
+                                <label id="input-label">Robux to Spend</label>
+                                <div class="input-wrapper">
+                                    <input type="number" id="trade-amount" value="500" oninput="calculateOutput()">
+                                    <span id="input-currency">R$</span>
+                                </div>
+                            </div>
+
+                            <div class="est-output">
+                                <span>Estimated Output:</span>
+                                <strong id="est-tokens">0.00 $TICKER</strong>
+                            </div>
+
+                            <button id="execute-btn" class="btn-execute" onclick="executeTrade()">Buy Tokens</button>
+                        </div>
+                    </div>
+
+                    <div class="trades-card">
+                        <h3>Live Trade Feed</h3>
+                        <div id="trade-feed" class="trade-feed-list">
+                            <!-- Live trade items -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- MODAL: SANDBOX DEPOSIT -->
+    <div id="deposit-modal" class="modal">
+        <div class="modal-content">
+            <h2>Sandbox Robux Top-Up</h2>
+            <p>Select test Robux amount to credit your account:</p>
+            <div class="preset-buttons">
+                <button onclick="addSandboxRobux(1000)">+1,000 R$</button>
+                <button onclick="addSandboxRobux(5000)">+5,000 R$</button>
+                <button onclick="addSandboxRobux(25000)">+25,000 R$</button>
+            </div>
+            <button class="btn-close" onclick="closeDepositModal()">Close</button>
+        </div>
+    </div>
+
+    <!-- MODAL: LAUNCH COIN -->
+    <div id="launch-modal" class="modal">
+        <div class="modal-content">
+            <h2>Launch a New Meme Coin</h2>
+            <form id="launch-form" onsubmit="handleLaunch(event)">
+                <div class="form-group">
+                    <label>Coin Name</label>
+                    <input type="text" id="launch-name" placeholder="e.g. BloxDog" required>
+                </div>
+                <div class="form-group">
+                    <label>Ticker Symbol</label>
+                    <input type="text" id="launch-ticker" placeholder="e.g. BDOG" required>
+                </div>
+                <div class="form-group">
+                    <label>Description</label>
+                    <textarea id="launch-desc" placeholder="What is this coin about?" required></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Image URL</label>
+                    <input type="url" id="launch-img" placeholder="https://..." required>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn-secondary" onclick="closeLaunchModal()">Cancel</button>
+                    <button type="submit" class="btn-primary">Create Coin (Free Sandbox)</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Include Chart.js library for live graphs -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="script.js"></script>
 </body>
 </html>
