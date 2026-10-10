@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Blox.fun - Pro Roblox Meme Coin Terminal</title>
     <link rel="stylesheet" href="style.css">
-    <!-- Chart.js for advanced trading view -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
@@ -22,17 +21,25 @@
             </div>
         </div>
         <div class="nav-right">
+            <!-- Profile Button -->
+            <button class="btn-secondary profile-nav-btn" onclick="openProfileModal()">
+                <img id="nav-avatar-img" src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=50" alt="Avatar">
+                <span id="nav-username">BuilderCharlie</span>
+            </button>
+
+            <!-- Balance Button -->
             <button class="btn-balance" onclick="openDepositModal()">
                 <span>R$</span> <span id="nav-balance">25,000.00</span> 
                 <span class="plus-badge">＋</span>
             </button>
-            <button class="btn-primary" onclick="openLaunchModal()">🚀 Start a New Coin</button>
+
+            <button class="btn-primary" onclick="openLaunchModal()">🚀 Start Coin</button>
         </div>
     </header>
 
     <!-- Main Application Container -->
     <main class="main-container">
-        <!-- ================= VIEW 1: HOME DISCOVER GRID ================= -->
+        <!-- ================= VIEW 1: HOME DISCOVER & TABS ================= -->
         <div id="home-view" class="view active">
             <div class="hero-section">
                 <div class="hero-content">
@@ -41,33 +48,76 @@
                 </div>
                 <div class="hero-stats">
                     <div class="stat-box">
-                        <span>Total Volume Traded</span>
-                        <h3 id="stat-vol">R$ 1,420,500</h3>
-                    </div>
-                    <div class="stat-box">
                         <span>Active Coins</span>
                         <h3 id="stat-count">0</h3>
                     </div>
                 </div>
             </div>
 
-            <div class="filter-sort-bar">
-                <div class="tabs-filter">
-                    <button class="filter-tab active" onclick="setFilter('all')">🔥 Hot & Trending</button>
-                    <button class="filter-tab" onclick="setFilter('graduated')">🏆 Graduated</button>
-                    <button class="filter-tab" onclick="setFilter('mine')">👤 My Coins</button>
+            <!-- Main Navigation Tabs (Explore, Portfolio, Global Chat) -->
+            <div class="main-nav-tabs">
+                <button class="main-tab active" onclick="switchMainTab('explore')">🔥 Explore Coins</button>
+                <button class="main-tab" onclick="switchMainTab('portfolio')">💼 My Portfolio</button>
+                <button class="main-tab" onclick="switchMainTab('global-chat')">💬 Global Chat Room</button>
+            </div>
+
+            <!-- SUB-VIEW A: EXPLORE GRID -->
+            <div id="subview-explore" class="subview active">
+                <div class="filter-sort-bar">
+                    <div class="tabs-filter">
+                        <button class="filter-tab active" onclick="setFilter('all')">All Coins</button>
+                        <button class="filter-tab" onclick="setFilter('graduated')">🏆 Graduated</button>
+                        <button class="filter-tab" onclick="setFilter('mine')">👤 My Created Coins</button>
+                    </div>
+                    <div class="sort-dropdown-wrap">
+                        <select id="sort-select" onchange="changeSort(this.value)">
+                            <option value="marketCap">Sort by: Market Cap</option>
+                            <option value="newest">Sort by: Newest</option>
+                        </select>
+                    </div>
                 </div>
-                <div class="sort-dropdown-wrap">
-                    <select id="sort-select" onchange="changeSort(this.value)">
-                        <option value="marketCap">Sort by: Market Cap</option>
-                        <option value="newest">Sort by: Newest</option>
-                        <option value="replies">Sort by: Most Active</option>
-                    </select>
+                <div id="coin-grid" class="coin-grid"></div>
+            </div>
+
+            <!-- SUB-VIEW B: PORTFOLIO TAB -->
+            <div id="subview-portfolio" class="subview">
+                <div class="card portfolio-summary-card">
+                    <h2>Your Portfolio Overview</h2>
+                    <div class="portfolio-stats-grid">
+                        <div class="p-stat">
+                            <span>Robux Cash Balance</span>
+                            <h3 id="port-robux">R$ 0.00</h3>
+                        </div>
+                        <div class="p-stat">
+                            <span>Token Holdings Value</span>
+                            <h3 id="port-tokens-val">R$ 0.00</h3>
+                        </div>
+                        <div class="p-stat">
+                            <span>Total Net Worth</span>
+                            <h3 id="port-networth">R$ 0.00</h3>
+                        </div>
+                    </div>
+                </div>
+
+                <h3 style="margin: 1.5rem 0 1rem 0;">Your Token Bags</h3>
+                <div id="portfolio-holdings-list" class="holdings-grid">
+                    <!-- Populated dynamically -->
                 </div>
             </div>
 
-            <div id="coin-grid" class="coin-grid">
-                <!-- Populated dynamically -->
+            <!-- SUB-VIEW C: GLOBAL CHAT TAB -->
+            <div id="subview-global-chat" class="subview">
+                <div class="card global-chat-card-full">
+                    <h2>Global Community Chat</h2>
+                    <p class="modal-sub">Chat with other traders across the platform. Tag coins with <code>$TICKER</code> or users with <code>@username</code>.</p>
+                    
+                    <div id="global-chat-messages" class="global-chat-box"></div>
+                    
+                    <div class="chat-input-row" style="margin-top: 1rem;">
+                        <input type="text" id="global-chat-input" placeholder="Type message... (e.g. Look at $NOOB @BuilderCharlie!)" onkeypress="handleGlobalChatKey(event)">
+                        <button class="btn-primary" onclick="sendGlobalChatMessage()">Send Message</button>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -84,7 +134,7 @@
             </div>
 
             <div class="terminal-grid">
-                <!-- Left Column: Chart & Coin Info -->
+                <!-- Left Column: Chart & Info -->
                 <div class="terminal-left">
                     <div class="card chart-card">
                         <div class="chart-header-row">
@@ -132,10 +182,8 @@
                     </div>
 
                     <div class="card community-card">
-                        <h3>💬 Live Chat & Community Board</h3>
-                        <div id="chat-messages" class="chat-box">
-                            <div class="chat-msg"><span class="chat-user">System:</span> Coin deployed successfully on bonding curve! 🚀</div>
-                        </div>
+                        <h3>💬 Coin Discussion Board</h3>
+                        <div id="chat-messages" class="chat-box"></div>
                         <div class="chat-input-row">
                             <input type="text" id="chat-input" placeholder="Say something about this coin..." onkeypress="handleChatKey(event)">
                             <button onclick="sendChatMessage()">Send</button>
@@ -143,7 +191,7 @@
                     </div>
                 </div>
 
-                <!-- Right Column: Axiom Swap Panel & Live Trade Feed -->
+                <!-- Right Column: Swap Panel & Live Trade Feed -->
                 <div class="terminal-right">
                     <div class="card swap-axiom-card">
                         <div class="swap-mode-tabs">
@@ -158,7 +206,6 @@
                                     <option value="1">1%</option>
                                     <option value="3" selected>3%</option>
                                     <option value="5">5%</option>
-                                    <option value="10">10%</option>
                                 </select>
                             </div>
 
@@ -173,12 +220,12 @@
                                 </div>
                             </div>
 
-                            <!-- Quick Preset Buttons -->
+                            <!-- Percentage Quick Presets -->
                             <div class="quick-presets" id="quick-presets-container">
-                                <button onclick="setPresetAmount(100)">100 R$</button>
-                                <button onclick="setPresetAmount(500)">500 R$</button>
-                                <button onclick="setPresetAmount(1000)">1,000 R$</button>
-                                <button onclick="setPresetAmount(5000)">5,000 R$</button>
+                                <button onclick="setPercentageAmount(0.25)">25%</button>
+                                <button onclick="setPercentageAmount(0.50)">50%</button>
+                                <button onclick="setPercentageAmount(0.75)">75%</button>
+                                <button onclick="setPercentageAmount(1.00)">100%</button>
                             </div>
 
                             <div class="est-receive-box">
@@ -198,21 +245,40 @@
                             <span>Tokens</span>
                             <span>Time</span>
                         </div>
-                        <div id="live-trades-feed" class="trades-feed-scroll">
-                            <!-- Populated dynamically -->
-                        </div>
+                        <div id="live-trades-feed" class="trades-feed-scroll"></div>
                     </div>
                 </div>
             </div>
         </div>
     </main>
 
+    <!-- ================= MODAL: PROFILE CHANGER ================= -->
+    <div id="profile-modal" class="modal-backdrop">
+        <div class="modal-card">
+            <h2>👤 Edit Profile</h2>
+            <p class="modal-sub">Customize your trader identity across Blox.fun.</p>
+            <form onsubmit="saveProfile(event)">
+                <div class="form-group">
+                    <label>Username</label>
+                    <input type="text" id="profile-username-input" required>
+                </div>
+                <div class="form-group">
+                    <label>Avatar Image URL</label>
+                    <input type="url" id="profile-avatar-input" required placeholder="https://...">
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn-secondary" onclick="closeProfileModal()">Cancel</button>
+                    <button type="submit" class="btn-primary">Save Profile</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- ================= MODAL: LAUNCH COIN ================= -->
     <div id="launch-modal" class="modal-backdrop">
         <div class="modal-card">
             <h2>🚀 Launch a New Meme Coin</h2>
             <p class="modal-sub">Deploy instantly onto the bonding curve with zero upfront liquidity required.</p>
-            
             <form id="launch-form" onsubmit="submitLaunchCoin(event)">
                 <div class="form-group">
                     <label>Coin Name</label>
@@ -230,17 +296,14 @@
                     <label>Image URL (Logo)</label>
                     <input type="url" id="l-img" placeholder="https://..." required>
                 </div>
-
-                <!-- Dev Pre-launch Buy Option -->
                 <div class="form-group dev-buy-box">
                     <label>🛠️ Dev Initial Pre-Launch Buy (Optional)</label>
                     <input type="number" id="l-devbuy" value="1000" min="0" max="25000">
                     <small>Spend Robux instantly upon creation to secure your initial token bag at block zero.</small>
                 </div>
-
                 <div class="modal-actions">
                     <button type="button" class="btn-secondary" onclick="closeLaunchModal()">Cancel</button>
-                    <button type="submit" class="btn-primary">Launch Token ($BDOG)</button>
+                    <button type="submit" class="btn-primary">Launch Token</button>
                 </div>
             </form>
         </div>
