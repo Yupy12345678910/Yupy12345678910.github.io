@@ -164,6 +164,7 @@ function loadTerminal(ticker) {
     renderLiveTradesFeed(coin);
     renderChatBox(coin);
     renderAxiomChart(coin);
+    updatePresetLabels(); // Update preset buttons based on Buy/Sell mode
     updateTradePreview();
 }
 
@@ -208,7 +209,7 @@ function renderAxiomChart(coin) {
 }
 
 // ==========================================
-// TRADING OPTIONS & AMM BONDING CURVE MATH
+// TRADING OPTIONS & PERCENTAGE BUTTONS
 // ==========================================
 function setTradeMode(mode) {
     currentTradeMode = mode;
@@ -230,13 +231,51 @@ function setTradeMode(mode) {
         execBtn.classList.add('sell-mode');
         topLbl.innerText = 'Tokens to Sell';
         tag.innerText = `$${currentTicker}`;
-        document.getElementById('trade-input-val').value = 1000000;
+        const userBag = currentUser.holdings[currentTicker] || 0;
+        document.getElementById('trade-input-val').value = userBag > 0 ? userBag : 0;
     }
+    
+    updatePresetLabels();
     updateTradePreview();
 }
 
-function setPresetAmount(amount) {
-    document.getElementById('trade-input-val').value = amount;
+// Dynamically change preset buttons to percentages (25%, 50%, 75%, 100%)
+function updatePresetLabels() {
+    const container = document.getElementById('quick-presets-container');
+    if (!container) return;
+
+    if (currentTradeMode === 'buy') {
+        container.innerHTML = `
+            <button onclick="setPercentageAmount(0.25)">25%</button>
+            <button onclick="setPercentageAmount(0.50)">50%</button>
+            <button onclick="setPercentageAmount(0.75)">75%</button>
+            <button onclick="setPercentageAmount(1.00)">100%</button>
+        `;
+    } else {
+        container.innerHTML = `
+            <button onclick="setPercentageAmount(0.25)">25%</button>
+            <button onclick="setPercentageAmount(0.50)">50%</button>
+            <button onclick="setPercentageAmount(0.75)">75%</button>
+            <button onclick="setPercentageAmount(1.00)">100%</button>
+        `;
+    }
+}
+
+function setPercentageAmount(fraction) {
+    const inputField = document.getElementById('trade-input-val');
+    
+    if (currentTradeMode === 'buy') {
+        // Calculate percentage of available Robux balance
+        const maxRobux = currentUser.robuxBalance;
+        const amount = maxRobux * fraction;
+        inputField.value = amount > 0 ? amount.toFixed(2) : 0;
+    } else {
+        // Calculate percentage of current coin holdings
+        const userBag = currentUser.holdings[currentTicker] || 0;
+        const amount = userBag * fraction;
+        inputField.value = amount > 0 ? amount.toFixed(2) : 0;
+    }
+    
     updateTradePreview();
 }
 
